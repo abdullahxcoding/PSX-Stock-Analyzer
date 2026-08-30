@@ -8,11 +8,14 @@ from app.db.session import SessionLocal
 from app.scheduler.market_hours import is_market_open
 from app.scrapers.exceptions import ScraperError
 from app.scrapers.kmi30_constituents import SOURCE_NAME as KMI30_SOURCE, fetch_kmi30_constituents
+from app.scrapers.news_feeds import fetch_and_tag_news
+from app.scrapers.psx_announcements import fetch_announcements_for_tickers
 from app.scrapers.psx_fundamentals import fetch_fundamentals_for_tickers
 from app.scrapers.psx_price_history import fetch_price_history_for_tickers
 from app.scrapers.psx_prices import fetch_eod_prices, fetch_intraday_prices
 from app.services.company_service import get_active_kmi30_tickers, upsert_companies
 from app.services.fundamentals_service import upsert_fundamentals
+from app.services.news_service import upsert_news_items
 from app.services.price_service import upsert_prices
 
 logger = logging.getLogger(__name__)
@@ -150,6 +153,72 @@ def backfill_price_history() -> None:
             "Finished job: %s (%d/%d tickers, %d rows)",
             job_name, len(tickers_with_data), len(tickers), affected,
         )
+    except ScraperError as exc:
+        logger.exception("Job failed: %s", job_name)
+        _record_run(job_name, started_at, ScrapeRunStatus.FAILED, error_message=str(exc))
+
+
+def sync_psx_announcements() -> None:
+    job_name = "psx_announcements_sync"
+    started_at = datetime.utcnow()
+    logger.info("Starting job: %s", job_name)
+    try:
+        with SessionLocal() as session:
+            tickers = get_active_kmi30_tickers(session)
+            ticker_to_id = dict(session.execute(select(Company.ticker, Company.id)).all())
+
+        if not tickers:
+            logger.warning("No active KMI-30 tickers found; skipping %s", job_name)
+            _record_run(job_name, started_at, ScrapeRunStatus.SUCCESS, rows_affected=0)
+            return
+
+        rows = fetch_announcements_for_tickers(tickers)
+        tickers_with_data = {row["ticker"] for row in rows}
+
+        with SessionLocal() as session:
+            affected = upsert_news_items(session, rows, ticker_to_id)
+
+        status = ScrapeRunStatus.SUCCESS if len(tickers_with_data) == len(tickers) else ScrapeRunStatus.PARTIAL
+        _record_run(job_name, started_at, status, rows_affected=affected)
+        logger.info(
+            "Finished job: %s (%d/%d tickers, %d rows)",
+            job_name, len(tickers_with_data), len(tickers), affected,
+        )
+    except ScraperError as exc:
+        logger.exception("Job failed: %s", job_name)
+        _record_run(job_name, started_at, ScrapeRunStatus.FAILED, error_message=str(exc))
+
+
+def sync_general_news() -> None:
+    job_name = "general_news_sync"
+    started_at = datetime.utcnow()
+    logger.info("Starting job: %s", job_name)
+    try:
+        with SessionLocal() as session:
+            companies = [
+                {"ticker": t, "name": n}
+                for t, n in session.execute(
+                    select(Company.ticker, Company.name).where(
+                        Company.is_kmi30_constituent.is_(True), Company.is_active.is_(True)
+                    )
+                ).all()
+            ]
+            ticker_to_id = dict(session.execute(select(Company.ticker, Company.id)).all())
+
+        if not companies:
+            logger.warning("No active KMI-30 companies found; skipping %s", job_name)
+            _record_run(job_name, started_at, ScrapeRunStatus.SUCCESS, rows_affected=0)
+            return
+
+        rows = fetch_and_tag_news(companies)
+
+        with SessionLocal() as session:
+            affected = upsert_news_items(session, rows, ticker_to_id)
+
+        # A low/zero match count is expected for general news (most articles
+        # don't mention any single KMI-30 company) — not a partial failure.
+        _record_run(job_name, started_at, ScrapeRunStatus.SUCCESS, rows_affected=affected)
+        logger.info("Finished job: %s (%d rows matched/upserted)", job_name, affected)
     except ScraperError as exc:
         logger.exception("Job failed: %s", job_name)
         _record_run(job_name, started_at, ScrapeRunStatus.FAILED, error_message=str(exc))

@@ -8,7 +8,9 @@ from app.scheduler.jobs import (
     poll_intraday_prices,
     sync_eod_prices,
     sync_fundamentals,
+    sync_general_news,
     sync_kmi30_constituents,
+    sync_psx_announcements,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,18 @@ def build_scheduler() -> AsyncIOScheduler:
         sync_fundamentals,
         trigger=CronTrigger(day_of_week="mon-fri", hour=18, minute=0),
         id="psx_fundamentals_sync",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        sync_psx_announcements,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=18, minute=30),
+        id="psx_announcements_sync",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        sync_general_news,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=19, minute=0),
+        id="general_news_sync",
         replace_existing=True,
     )
     scheduler.add_job(

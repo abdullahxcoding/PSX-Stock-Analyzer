@@ -49,6 +49,11 @@ class PeriodType(str, enum.Enum):
     QUARTERLY = "quarterly"
 
 
+class NewsSourceType(str, enum.Enum):
+    PSX_ANNOUNCEMENT = "psx_announcement"
+    GENERAL_NEWS = "general_news"
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -142,6 +147,29 @@ class Fundamentals(Base):
     net_profit_margin_pct: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
     eps_growth_pct: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
     peg: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    company: Mapped["Company"] = relationship()
+
+
+class NewsItem(Base):
+    __tablename__ = "news_items"
+    __table_args__ = (
+        UniqueConstraint("ticker", "source_type", "url", name="uq_news_ticker_source_url"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    source_type: Mapped[NewsSourceType] = mapped_column(
+        Enum(NewsSourceType, native_enum=False, length=20, values_callable=_enum_values),
+        nullable=False,
+    )
+    category: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    url: Mapped[str] = mapped_column(String(500), nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     source: Mapped[str] = mapped_column(String(50), nullable=False)
     fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 

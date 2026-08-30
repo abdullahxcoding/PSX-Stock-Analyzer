@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:media="http://search.yahoo.com/mrss/" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title>Business Recorder - Business</title>
+    <link>https://www.brecorder.com/</link>
+    <description>Business Recorder</description>
+    <language>en-Us</language>
+    <pubDate>Mon, 31 Aug 2026 01:06:08 +0500</pubDate>
+    <item>
+      <title>Lucky Cement announces expansion plans for new plant</title>
+      <link>https://www.brecorder.com/news/40000001/lucky-cement-expansion</link>
+      <description>&lt;p&gt;Lucky Cement Limited said on Sunday it plans to expand capacity.&lt;/p&gt;</description>
+      <pubDate>Sun, 30 Aug 2026 14:00:00 +0500</pubDate>
+    </item>
+    <item>
+      <title>SBP holds policy rate steady at 11%</title>
+      <link>https://www.brecorder.com/news/40000002/sbp-policy-rate</link>
+      <description>&lt;p&gt;The State Bank of Pakistan kept its policy rate unchanged.&lt;/p&gt;</description>
+      <pubDate>Sun, 30 Aug 2026 10:00:00 +0500</pubDate>
+    </item>
+    <item>
+      <title>PSX: OGDC shares rally on higher oil prices</title>
+      <link>https://www.brecorder.com/news/40000003/ogdc-rally</link>
+      <description>&lt;p&gt;Shares of OGDC gained 3% in early trading.&lt;/p&gt;</description>
+      <pubDate>Sun, 30 Aug 2026 09:30:00 +0500</pubDate>
+    </item>
+    <item>
+      <title>Gold prices nosedive amid global uncertainty</title>
+      <link>https://www.brecorder.com/news/40000004/gold-prices</link>
+      <description>&lt;p&gt;Gold prices fell sharply on Sunday.&lt;/p&gt;</description>
+      <pubDate>Sun, 30 Aug 2026 08:00:00 +0500</pubDate>
+    </item>
+  </channel>
+</rss>
