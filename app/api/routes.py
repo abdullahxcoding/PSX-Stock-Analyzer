@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Company, Fundamentals, PriceOHLCV
 from app.db.session import get_session
 from app.services.fundamentals_service import get_qoq_comparison, get_yoy_comparison
+from app.services.macro_service import get_latest_macro_snapshot, get_relevant_macro_context
 from app.services.news_service import get_news_for_ticker
 from app.services.technical_service import get_technicals
 
@@ -126,3 +127,14 @@ def get_news(ticker: str, limit: int = 50, session: Session = Depends(get_sessio
         }
         for n in items
     ]
+
+
+@router.get("/api/macro")
+def get_macro_snapshot(session: Session = Depends(get_session)) -> dict:
+    return get_latest_macro_snapshot(session)
+
+
+@router.get("/api/macro/{ticker}")
+def get_macro_for_ticker(ticker: str, session: Session = Depends(get_session)) -> dict:
+    company = _get_company_or_404(ticker, session)
+    return get_relevant_macro_context(session, company.ticker)

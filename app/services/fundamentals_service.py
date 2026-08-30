@@ -5,6 +5,7 @@ from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
 from app.db.models import Fundamentals
+from app.services.comparison_utils import pct_change
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,6 @@ def upsert_fundamentals(session: Session, rows: list[dict], ticker_to_company_id
     return result.rowcount or 0
 
 
-def _pct_change(current: float | None, previous: float | None) -> float | None:
-    if current is None or previous is None or previous == 0:
-        return None
-    return round((float(current) - float(previous)) / abs(float(previous)) * 100, 2)
-
-
 def _metric_deltas(current: Fundamentals, previous: Fundamentals) -> dict:
     deltas = {}
     for metric in _COMPARISON_METRICS:
@@ -60,7 +55,7 @@ def _metric_deltas(current: Fundamentals, previous: Fundamentals) -> dict:
         deltas[metric] = {
             "current": current_value,
             "previous": previous_value,
-            "pct_change": _pct_change(current_value, previous_value),
+            "pct_change": pct_change(current_value, previous_value),
         }
     return deltas
 

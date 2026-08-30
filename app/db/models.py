@@ -54,6 +54,15 @@ class NewsSourceType(str, enum.Enum):
     GENERAL_NEWS = "general_news"
 
 
+class MacroFactorType(str, enum.Enum):
+    OIL_WTI = "oil_wti"
+    OIL_BRENT = "oil_brent"
+    USD_PKR = "usd_pkr"
+    SBP_POLICY_RATE = "sbp_policy_rate"
+    CPI_INFLATION = "cpi_inflation"
+    SP500 = "sp500"
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -174,3 +183,22 @@ class NewsItem(Base):
     fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     company: Mapped["Company"] = relationship()
+
+
+class MacroFactor(Base):
+    __tablename__ = "macro_factors"
+    __table_args__ = (
+        UniqueConstraint("factor_type", "observed_at", name="uq_macro_factor_observed"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    factor_type: Mapped[MacroFactorType] = mapped_column(
+        Enum(MacroFactorType, native_enum=False, length=20, values_callable=_enum_values),
+        nullable=False,
+        index=True,
+    )
+    value: Mapped[float] = mapped_column(Numeric(18, 4), nullable=False)
+    unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    source: Mapped[str] = mapped_column(String(50), nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

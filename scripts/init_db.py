@@ -12,7 +12,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.db.base import Base  # noqa: E402
-from app.db.models import Company, Fundamentals, NewsItem, PriceOHLCV, ScrapeRun  # noqa: E402, F401
+from app.db.models import (  # noqa: E402, F401
+    Company,
+    Fundamentals,
+    MacroFactor,
+    NewsItem,
+    PriceOHLCV,
+    ScrapeRun,
+)
 from app.db.session import engine  # noqa: E402
 
 

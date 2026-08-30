@@ -1,0 +1,14 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD",
+          "symbol": "CL=F",
+          "regularMarketPrice": 83.4,
+          "regularMarketTime": 1787950798
+        }
+      }
+    ]
+  }
+}

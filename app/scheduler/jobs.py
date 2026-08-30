@@ -8,6 +8,8 @@ from app.db.session import SessionLocal
 from app.scheduler.market_hours import is_market_open
 from app.scrapers.exceptions import ScraperError
 from app.scrapers.kmi30_constituents import SOURCE_NAME as KMI30_SOURCE, fetch_kmi30_constituents
+from app.scrapers.macro_tradingeconomics import fetch_cpi_inflation, fetch_policy_rate
+from app.scrapers.macro_yahoo import fetch_all_yahoo_quotes
 from app.scrapers.news_feeds import fetch_and_tag_news
 from app.scrapers.psx_announcements import fetch_announcements_for_tickers
 from app.scrapers.psx_fundamentals import fetch_fundamentals_for_tickers
@@ -15,6 +17,7 @@ from app.scrapers.psx_price_history import fetch_price_history_for_tickers
 from app.scrapers.psx_prices import fetch_eod_prices, fetch_intraday_prices
 from app.services.company_service import get_active_kmi30_tickers, upsert_companies
 from app.services.fundamentals_service import upsert_fundamentals
+from app.services.macro_service import upsert_macro_factors
 from app.services.news_service import upsert_news_items
 from app.services.price_service import upsert_prices
 
@@ -219,6 +222,23 @@ def sync_general_news() -> None:
         # don't mention any single KMI-30 company) — not a partial failure.
         _record_run(job_name, started_at, ScrapeRunStatus.SUCCESS, rows_affected=affected)
         logger.info("Finished job: %s (%d rows matched/upserted)", job_name, affected)
+    except ScraperError as exc:
+        logger.exception("Job failed: %s", job_name)
+        _record_run(job_name, started_at, ScrapeRunStatus.FAILED, error_message=str(exc))
+
+
+def sync_macro_factors() -> None:
+    job_name = "macro_factors_sync"
+    started_at = datetime.utcnow()
+    logger.info("Starting job: %s", job_name)
+    try:
+        rows = fetch_all_yahoo_quotes() + fetch_policy_rate() + fetch_cpi_inflation()
+
+        with SessionLocal() as session:
+            affected = upsert_macro_factors(session, rows)
+
+        _record_run(job_name, started_at, ScrapeRunStatus.SUCCESS, rows_affected=affected)
+        logger.info("Finished job: %s (%d rows upserted)", job_name, affected)
     except ScraperError as exc:
         logger.exception("Job failed: %s", job_name)
         _record_run(job_name, started_at, ScrapeRunStatus.FAILED, error_message=str(exc))

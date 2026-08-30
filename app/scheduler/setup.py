@@ -10,6 +10,7 @@ from app.scheduler.jobs import (
     sync_fundamentals,
     sync_general_news,
     sync_kmi30_constituents,
+    sync_macro_factors,
     sync_psx_announcements,
 )
 
@@ -49,6 +50,12 @@ def build_scheduler() -> AsyncIOScheduler:
         sync_general_news,
         trigger=CronTrigger(day_of_week="mon-fri", hour=19, minute=0),
         id="general_news_sync",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        sync_macro_factors,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=20, minute=0),
+        id="macro_factors_sync",
         replace_existing=True,
     )
     scheduler.add_job(
