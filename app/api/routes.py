@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Company, Fundamentals, PriceOHLCV
 from app.db.session import get_session
 from app.services.fundamentals_service import get_qoq_comparison, get_yoy_comparison
+from app.services.technical_service import get_technicals
 
 router = APIRouter()
 
@@ -100,3 +101,9 @@ def get_fundamentals_comparison(ticker: str, session: Session = Depends(get_sess
         "qoq": get_qoq_comparison(session, company.ticker),
         "yoy": get_yoy_comparison(session, company.ticker),
     }
+
+
+@router.get("/api/technicals/{ticker}")
+def get_technicals_endpoint(ticker: str, session: Session = Depends(get_session)) -> dict:
+    company = _get_company_or_404(ticker, session)
+    return get_technicals(session, company.ticker)
