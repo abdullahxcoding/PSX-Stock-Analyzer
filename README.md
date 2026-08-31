@@ -1,6 +1,6 @@
-# PSX Shariah Analyzer — Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5
+# PSX Shariah Analyzer — Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5 + Phase 6
 
-Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scraper (EOD + intraday). Phase 2: company fundamentals scraper (Sales, Profit after Taxation, EPS, annual ratios) + QoQ/YoY comparison logic. Phase 3: historical price backfill + technical indicators (SMA, RSI, volume MA, support/resistance). Phase 4: PSX official announcements + general news scraping, tagged to companies. Phase 5: macro factor tracking (oil, USD/PKR, SBP policy rate, CPI, S&P 500), tagged to sensitive companies. All backed by MySQL, with APScheduler running the jobs on schedule. No frontend, no bot yet — see `PSX-Shariah-Analyzer-Spec.md` for the full roadmap.
+Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scraper (EOD + intraday). Phase 2: company fundamentals scraper (Sales, Profit after Taxation, EPS, annual ratios) + QoQ/YoY comparison logic. Phase 3: historical price backfill + technical indicators (SMA, RSI, volume MA, support/resistance). Phase 4: PSX official announcements + general news scraping, tagged to companies. Phase 5: macro factor tracking (oil, USD/PKR, SBP policy rate, CPI, S&P 500), tagged to sensitive companies. Phase 6: signal engine — ranked, explainable watchlist combining fundamentals + technicals + news, with macro context and non-guaranteed entry/target ranges. All backed by MySQL, with APScheduler running the jobs on schedule. No frontend, no bot yet — see `PSX-Shariah-Analyzer-Spec.md` for the full roadmap.
 
 ## Setup
 
@@ -57,10 +57,24 @@ Each run writes a row to `scrape_runs` (status, rows affected, error message) re
 
 All eight sources were verified end-to-end: real requests, real row inserts into MySQL, verified via the API.
 
+## Signal engine (Phase 6)
+
+`GET /api/signals` (ranked watchlist, all 30 companies) and `GET /api/signals/{ticker}` (one company's full detail) combine the four services above into an explainable score — **no black-box model, no new data source**: every trigger is a plain, named rule with a one-sentence explanation, reusing data the other services already compute.
+
+- **Fundamental trigger**: profit after tax QoQ or YoY growth > +5%
+- **Technical trigger**: `price > SMA50 > SMA200` (textbook uptrend structure)
+- **News trigger**: at least one announcement/article in the last 30 days
+- **Score/status**: 0-3 triggers fired → `none`/`consider`/`watch`; the full ranked list is always returned, including `none`-status companies, so it's clear *why* something isn't flagged, not just what is
+- **Risk caution**: flagged independently whenever RSI > 70 (overbought), regardless of score — a high score never reads as "chase this now"
+- **Macro context**: attached as explanatory text (not scored), one sentence per factor relevant to that company's sector exposure
+- **Entry zone / target range**: reuses Phase 3's support/resistance directly (no new prediction model), always paired with an explicit non-guarantee risk note
+
+Deliberately deferred: historical signal tracking/backtesting (needs its own design — a natural fit for Phase 7's dashboard) and any real news sentiment analysis (the news trigger is presence/recency-based only, not positive/negative scored — no such model exists anywhere in this project).
+
 ## What's verified working end-to-end
 
 - MySQL schema (`companies`, `price_ohlcv`, `fundamentals`, `news_items`, `macro_factors`, `scrape_runs`) created and matches the plan
-- FastAPI app boots, all 7 scheduler jobs register on startup (the price-history backfill is one-time/manual, not scheduled), `/health`, `/api/companies`, `/api/prices/{ticker}`, `/api/fundamentals/{ticker}`, `/api/fundamentals/{ticker}/comparison`, `/api/technicals/{ticker}`, `/api/news/{ticker}`, `/api/macro`, `/api/macro/{ticker}` all serve real data
+- FastAPI app boots, all 7 scheduler jobs register on startup (the price-history backfill is one-time/manual, not scheduled), `/health`, `/api/companies`, `/api/prices/{ticker}`, `/api/fundamentals/{ticker}`, `/api/fundamentals/{ticker}/comparison`, `/api/technicals/{ticker}`, `/api/news/{ticker}`, `/api/macro`, `/api/macro/{ticker}`, `/api/signals`, `/api/signals/{ticker}` all serve real data
 - Live KMI-30 constituent scrape: 30/30 real tickers inserted
 - Live EOD price scrape: 30/30 tickers, real OHLCV from market-watch
 - Live intraday poll (tested with the market-hours guard mocked open, since testing happened outside trading hours): 30/30 tickers, correctly no-ops with zero rows/no error when run for real outside market hours
@@ -70,5 +84,6 @@ All eight sources were verified end-to-end: real requests, real row inserts into
 - Live general news scrape: 90 articles pulled across 3 feeds, 5 correctly tagged to companies (e.g. "Pakistan State Oil (PSO)" and "Sui Southern Gas Company (SSGC)" mentions found and matched, verified against the raw article text) — a low match count is the expected, not a failure
 - Live macro factors scrape: all 6 factor types landed with real values (WTI $83.40, Brent $88.10, USD/PKR 277.23, S&P 500 7711.76, SBP policy rate 11.5%, CPI 9.2%); `/api/macro/OGDC` correctly includes oil factors and excludes usd_pkr/policy-rate, `/api/macro/LUCK` the reverse — confirming the sector-sensitivity filter works as designed; % change math verified by hand (CPI -17.12% = (9.2-11.1)/11.1×100)
 - Re-run idempotency: re-scraping KMI-30, fundamentals, the price history backfill, PSX announcements, general news, and macro factors all leave row counts unchanged on a second run
-- Offline parser/indicator unit tests (48/48) pass using saved fixtures and known reference values (a classic worked RSI example, hand-computed SMA), independent of the live site
+- Live signal engine: `/api/signals` returns all 30 companies ranked; spot-checked ATRL's full detail (score 3, "watch") against its raw `/api/fundamentals/ATRL/comparison` and `/api/technicals/ATRL` output — the reasoning text's numbers (217.95% QoQ profit growth, price/SMA50/SMA200 values, entry/target range) match the underlying data exactly
+- Offline unit tests (66/66) pass using saved fixtures, known reference values, and synthetic data for the pure scoring functions, independent of the live site
 - Found and fixed real bugs during live testing (unit tests alone couldn't catch these — they only surface against a real MySQL upsert or real site structure): (1) the price/fundamentals upserts referenced a server-generated `fetched_at` column that wasn't in the INSERT list; (2) SQLAlchemy's default `Enum` binding stored Python enum *names* (`EOD`, `FAILED`) instead of `.value` (`eod`, `failed`); (3) a bulk multi-row insert requires every row dict to share the same keys — quarterly fundamentals rows silently omitting ratio columns broke the batch once combined with annual rows; (4) MySQL's unique constraint treats `NULL != NULL`, so using `NULL` for `fiscal_quarter` on annual rows meant every re-scrape inserted fresh duplicate annual rows instead of upserting — fixed by using `0` as an explicit "annual" sentinel (stored as `0`, exposed as `null` over the API); (5) the support/resistance fallback initially picked the "nearest value" instead of the intended rolling min/max, caught by a unit test on a monotonic price series before it ever hit production data
