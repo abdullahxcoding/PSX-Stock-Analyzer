@@ -4,8 +4,8 @@ Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scra
 
 ## Setup
 
-**Backend:**
-1. Create a virtualenv and install dependencies:
+One-time, per machine:
+1. Backend: create the virtualenv and install dependencies:
    ```
    python -m venv .venv
    .venv\Scripts\activate
@@ -17,23 +17,25 @@ Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scra
    mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS psx_shariah_analyzer CHARACTER SET utf8mb4;"
    python scripts/init_db.py
    ```
-4. Run the test suite (offline, uses fixtures — no live scraping):
+4. Run the backend test suite (offline, uses fixtures — no live scraping):
    ```
    python -m pytest tests/ -v
    ```
-5. Start the app (FastAPI + scheduler):
+5. Install the frontend and root dev-runner dependencies:
    ```
-   uvicorn app.main:app --reload
+   npm install
+   npm install --prefix frontend
    ```
-   Check `http://127.0.0.1:8000/health`, `/api/companies`, `/api/prices/{ticker}`.
 
-**Frontend** (needs the backend running first — see `frontend/README.md` for detail):
+## Run the whole project (one command)
+
 ```
-cd frontend
-npm install
 npm run dev
 ```
-Opens on `http://localhost:5173`.
+
+Starts the FastAPI backend (`:8000`, with the scheduler) and the Vite frontend dev server (`:5173`) together, labeled `[backend]`/`[frontend]` in one terminal. Open `http://localhost:5173`. Ctrl+C stops both.
+
+To run them separately instead (e.g. to watch backend logs on their own): `uvicorn app.main:app --reload` in one terminal (venv activated), `npm run dev --prefix frontend` in another.
 
 ## Manual one-shot scraper runs (for testing/debugging)
 

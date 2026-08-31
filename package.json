@@ -1,0 +1,10 @@
+{
+  "name": "psx-shariah-analyzer",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \".venv\\Scripts\\python.exe -m uvicorn app.main:app --reload\" \"npm --prefix frontend run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
