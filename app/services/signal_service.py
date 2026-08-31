@@ -139,6 +139,7 @@ def compute_signal(session: Session, ticker: str) -> dict:
 
     return {
         "ticker": ticker,
+        "current_price": technicals.get("current_price"),
         "score": score,
         "status": status,
         "triggers": {

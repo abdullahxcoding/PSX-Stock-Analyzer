@@ -1,9 +1,10 @@
-# PSX Shariah Analyzer — Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5 + Phase 6
+# PSX Shariah Analyzer — Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 5 + Phase 6 + Phase 7
 
-Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scraper (EOD + intraday). Phase 2: company fundamentals scraper (Sales, Profit after Taxation, EPS, annual ratios) + QoQ/YoY comparison logic. Phase 3: historical price backfill + technical indicators (SMA, RSI, volume MA, support/resistance). Phase 4: PSX official announcements + general news scraping, tagged to companies. Phase 5: macro factor tracking (oil, USD/PKR, SBP policy rate, CPI, S&P 500), tagged to sensitive companies. Phase 6: signal engine — ranked, explainable watchlist combining fundamentals + technicals + news, with macro context and non-guaranteed entry/target ranges. All backed by MySQL, with APScheduler running the jobs on schedule. No frontend, no bot yet — see `PSX-Shariah-Analyzer-Spec.md` for the full roadmap.
+Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scraper (EOD + intraday). Phase 2: company fundamentals scraper (Sales, Profit after Taxation, EPS, annual ratios) + QoQ/YoY comparison logic. Phase 3: historical price backfill + technical indicators (SMA, RSI, volume MA, support/resistance). Phase 4: PSX official announcements + general news scraping, tagged to companies. Phase 5: macro factor tracking (oil, USD/PKR, SBP policy rate, CPI, S&P 500), tagged to sensitive companies. Phase 6: signal engine — ranked, explainable watchlist combining fundamentals + technicals + news, with macro context and non-guaranteed entry/target ranges. Phase 7: React web dashboard (Watchlist, Company Deep-Dive, limited Companies screener) consuming the API. Backend: MySQL + APScheduler. No Telegram bot yet — see `PSX-Shariah-Analyzer-Spec.md` for the full roadmap.
 
 ## Setup
 
+**Backend:**
 1. Create a virtualenv and install dependencies:
    ```
    python -m venv .venv
@@ -25,6 +26,14 @@ Personal, single-user tool. Phase 1: KMI-30 constituent scraper + PSX price scra
    uvicorn app.main:app --reload
    ```
    Check `http://127.0.0.1:8000/health`, `/api/companies`, `/api/prices/{ticker}`.
+
+**Frontend** (needs the backend running first — see `frontend/README.md` for detail):
+```
+cd frontend
+npm install
+npm run dev
+```
+Opens on `http://localhost:5173`.
 
 ## Manual one-shot scraper runs (for testing/debugging)
 
@@ -71,6 +80,16 @@ All eight sources were verified end-to-end: real requests, real row inserts into
 
 Deliberately deferred: historical signal tracking/backtesting (needs its own design — a natural fit for Phase 7's dashboard) and any real news sentiment analysis (the news trigger is presence/recency-based only, not positive/negative scored — no such model exists anywhere in this project).
 
+## Web dashboard (Phase 7)
+
+`frontend/` — React (Vite, plain JS) + Tailwind CSS, three pages, all consuming the existing API with no new backend logic beyond CORS + one field:
+
+- **Watchlist** (`/`) — the ranked signal list
+- **Company Deep-Dive** (`/company/:ticker`) — price chart with SMA50/SMA200 overlays (computed **client-side** from `/api/prices`, same plain rolling-mean formula as the backend — `/api/technicals` only returns the latest single value, not a series), fundamentals with QoQ/YoY badges, full signal reasoning, macro context, entry/target range, and the complete news/announcements list
+- **Companies** (`/companies`) — a **limited** screener (Shariah status / signal status / price only — sector and market-cap/valuation filters aren't built since that data doesn't exist, same dead end noted in Phases 1 and 5), sortable and filterable, using only 2 bulk API calls (no per-ticker N+1)
+
+Chart built following the `dataviz` skill's guidance: validated categorical palette (blue/orange/aqua, CVD-safe per the skill's documented Delta-E checks) for the 3 series, legend + hover tooltip, single y-axis.
+
 ## What's verified working end-to-end
 
 - MySQL schema (`companies`, `price_ohlcv`, `fundamentals`, `news_items`, `macro_factors`, `scrape_runs`) created and matches the plan
@@ -87,3 +106,4 @@ Deliberately deferred: historical signal tracking/backtesting (needs its own des
 - Live signal engine: `/api/signals` returns all 30 companies ranked; spot-checked ATRL's full detail (score 3, "watch") against its raw `/api/fundamentals/ATRL/comparison` and `/api/technicals/ATRL` output — the reasoning text's numbers (217.95% QoQ profit growth, price/SMA50/SMA200 values, entry/target range) match the underlying data exactly
 - Offline unit tests (66/66) pass using saved fixtures, known reference values, and synthetic data for the pure scoring functions, independent of the live site
 - Found and fixed real bugs during live testing (unit tests alone couldn't catch these — they only surface against a real MySQL upsert or real site structure): (1) the price/fundamentals upserts referenced a server-generated `fetched_at` column that wasn't in the INSERT list; (2) SQLAlchemy's default `Enum` binding stored Python enum *names* (`EOD`, `FAILED`) instead of `.value` (`eod`, `failed`); (3) a bulk multi-row insert requires every row dict to share the same keys — quarterly fundamentals rows silently omitting ratio columns broke the batch once combined with annual rows; (4) MySQL's unique constraint treats `NULL != NULL`, so using `NULL` for `fiscal_quarter` on annual rows meant every re-scrape inserted fresh duplicate annual rows instead of upserting — fixed by using `0` as an explicit "annual" sentinel (stored as `0`, exposed as `null` over the API); (5) the support/resistance fallback initially picked the "nearest value" instead of the intended rolling min/max, caught by a unit test on a monotonic price series before it ever hit production data
+- Frontend visually verified end-to-end with both dev servers running (Playwright, headless Chromium, screenshots): Watchlist renders all 30 companies ranked with correct status colors; Company Deep-Dive renders a real, correctly-computed price chart (SMA50/SMA200 lines visibly track the price series) plus fundamentals, macro context, entry/target range, and 15 real news items for a sample ticker; Companies page filter interaction tested directly — selecting "watch" status correctly narrowed 30 rows to exactly the 6 companies shown as "watch" on the Watchlist; zero console/page errors across all three pages
