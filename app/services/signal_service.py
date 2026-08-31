@@ -111,9 +111,14 @@ def _build_entry_target(technicals: dict) -> dict | None:
     )
     if price is None or support is None or resistance is None:
         return None
+    # target_1/2/3 and stop_loss are already computed by technical_service's
+    # get_technicals() (compute_price_levels) — reuse, don't recompute.
+    targets = [technicals.get("target_1"), technicals.get("target_2"), technicals.get("target_3")]
     return {
         "entry_zone": {"low": support, "high": price},
         "target_range": {"low": price, "high": resistance},
+        "targets": targets,
+        "stop_loss": technicals.get("stop_loss"),
         "risk_note": (
             "Based on recent (~90-day) trading range, not a prediction — actual "
             "prices can move outside this range in either direction. Not financial advice."
@@ -151,6 +156,8 @@ def compute_signal(session: Session, ticker: str) -> dict:
         "macro_context": _build_macro_context_sentences(macro_context),
         "entry_zone": entry_target["entry_zone"] if entry_target else None,
         "target_range": entry_target["target_range"] if entry_target else None,
+        "targets": entry_target["targets"] if entry_target else None,
+        "stop_loss": entry_target["stop_loss"] if entry_target else None,
         "risk_note": entry_target["risk_note"] if entry_target else None,
     }
 

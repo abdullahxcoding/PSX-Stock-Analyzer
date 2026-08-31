@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     scraper_timeout_seconds: int = 15
 
     # Scheduler
-    intraday_poll_interval_minutes: int = 5
+    intraday_poll_interval_seconds: int = 15
     market_open_time: str = "09:15"
     market_close_time: str = "15:30"
     market_timezone: str = "Asia/Karachi"

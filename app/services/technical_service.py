@@ -91,6 +91,25 @@ def compute_support_resistance(
     return {"support": round(support, 4), "resistance": round(resistance, 4)}
 
 
+def compute_price_levels(support: float | None, resistance: float | None) -> dict:
+    """Measured-move projection — a standard, named technical-analysis
+    heuristic, not a new prediction model: the support-resistance range is
+    projected forward from resistance for two further targets; stop-loss
+    sits just below support, offset by a quarter of that same range as a
+    noise buffer. Not a guarantee — same caveat as support/resistance itself.
+    None for all four if support/resistance aren't available."""
+    if support is None or resistance is None:
+        return {"target_1": None, "target_2": None, "target_3": None, "stop_loss": None}
+
+    range_ = resistance - support
+    return {
+        "target_1": round(resistance, 4),
+        "target_2": round(resistance + range_, 4),
+        "target_3": round(resistance + 2 * range_, 4),
+        "stop_loss": round(support - 0.25 * range_, 4),
+    }
+
+
 def get_technicals(session: Session, ticker: str) -> dict:
     rows = session.execute(
         select(PriceOHLCV.close, PriceOHLCV.volume)
@@ -102,6 +121,7 @@ def get_technicals(session: Session, ticker: str) -> dict:
     volumes = [int(r.volume) for r in rows if r.volume is not None]
 
     support_resistance = compute_support_resistance(closes) if closes else {"support": None, "resistance": None}
+    price_levels = compute_price_levels(support_resistance["support"], support_resistance["resistance"])
 
     return {
         "current_price": closes[-1] if closes else None,
@@ -112,4 +132,5 @@ def get_technicals(session: Session, ticker: str) -> dict:
         "volume_ma_20": compute_volume_ma(volumes, 20),
         "support": support_resistance["support"],
         "resistance": support_resistance["resistance"],
+        **price_levels,
     }

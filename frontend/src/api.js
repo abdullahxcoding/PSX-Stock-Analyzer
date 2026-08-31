@@ -1,5 +1,10 @@
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 
+// Matches the backend's intraday poll cadence (app/config.py
+// intraday_poll_interval_seconds) — no point refreshing faster than the
+// data actually changes.
+export const LIVE_POLL_INTERVAL_MS = 15000
+
 async function get(path) {
   const response = await fetch(`${BASE_URL}${path}`)
   if (!response.ok) {

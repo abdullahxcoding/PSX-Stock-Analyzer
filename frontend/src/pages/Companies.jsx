@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../api'
+import { api, LIVE_POLL_INTERVAL_MS } from '../api'
+import LiveDot from '../components/LiveDot'
 import { ErrorState, LoadingState } from '../components/LoadingError'
 import StatusBadge from '../components/StatusBadge'
+import { useInterval } from '../hooks/useInterval'
 
 const SHARIAH_OPTIONS = ['all', 'compliant', 'non_compliant', 'under_review', 'unknown']
 const STATUS_OPTIONS = ['all', 'watch', 'consider', 'none']
@@ -15,7 +17,7 @@ export default function Companies() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [sortBy, setSortBy] = useState('score')
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     Promise.all([api.companies(), api.signals()])
       .then(([companies, signals]) => {
         const signalByTicker = Object.fromEntries(signals.map((s) => [s.ticker, s]))
@@ -23,6 +25,9 @@ export default function Companies() {
       })
       .catch((e) => setError(e.message))
   }, [])
+
+  useEffect(refresh, [refresh])
+  useInterval(refresh, LIVE_POLL_INTERVAL_MS)
 
   const filtered = useMemo(() => {
     if (!rows) return []
@@ -40,7 +45,10 @@ export default function Companies() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="text-2xl font-semibold text-slate-900">Companies</h1>
+        <LiveDot />
+      </div>
       <p className="mt-1 text-sm text-slate-500">
         A limited screener — sortable/filterable by Shariah compliance status, signal status, and price. Sector
         and market-cap/valuation filters aren't available yet (that data hasn't been sourced).

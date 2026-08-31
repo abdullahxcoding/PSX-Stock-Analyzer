@@ -2,6 +2,7 @@ import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config import settings
 from app.scheduler.jobs import (
@@ -60,11 +61,12 @@ def build_scheduler() -> AsyncIOScheduler:
     )
     scheduler.add_job(
         poll_intraday_prices,
-        trigger=CronTrigger(
-            day_of_week="mon-fri",
-            hour="9-15",
-            minute=f"*/{settings.intraday_poll_interval_minutes}",
-        ),
+        # Fires every N seconds around the clock; is_market_open() inside the
+        # job itself (not this trigger) is the real gate on whether it does
+        # anything — that was already designed to be the authority (Phase 1),
+        # so no day/hour bound is needed here. IntervalTrigger has no
+        # day-of-week concept, unlike the CronTrigger this replaced.
+        trigger=IntervalTrigger(seconds=settings.intraday_poll_interval_seconds),
         id="psx_intraday_poll",
         replace_existing=True,
     )

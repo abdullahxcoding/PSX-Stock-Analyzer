@@ -1,4 +1,5 @@
 from app.services.technical_service import (
+    compute_price_levels,
     compute_rsi,
     compute_sma,
     compute_support_resistance,
@@ -70,3 +71,20 @@ def test_support_resistance_falls_back_to_min_max_when_no_pivots():
     result = compute_support_resistance(closes, lookback=30, pivot_window=5)
     assert result["support"] == min(closes)
     assert result["resistance"] == max(closes)
+
+
+def test_price_levels_measured_move():
+    result = compute_price_levels(support=90, resistance=110)
+    assert result["target_1"] == 110
+    assert result["target_2"] == 130
+    assert result["target_3"] == 150
+    assert result["stop_loss"] == 85
+
+
+def test_price_levels_none_when_support_or_resistance_missing():
+    assert compute_price_levels(None, 110) == {
+        "target_1": None, "target_2": None, "target_3": None, "stop_loss": None,
+    }
+    assert compute_price_levels(90, None) == {
+        "target_1": None, "target_2": None, "target_3": None, "stop_loss": None,
+    }
